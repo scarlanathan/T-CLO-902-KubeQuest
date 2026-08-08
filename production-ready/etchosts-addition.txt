@@ -1,0 +1,20 @@
+# =====================================================
+# AJOUTER CES LIGNES À VOTRE FICHIER /etc/hosts
+# =====================================================
+
+# Sur macOS/Linux: sudo nano /etc/hosts
+# Sur Windows: C:\Windows\System32\drivers\etc\hosts
+
+3.77.235.74 app.kubequest.local
+3.77.235.74 grafana.kubequest.local
+3.77.235.74 prometheus.kubequest.local
+3.77.235.74 dashboard.kubequest.local
+
+# =====================================================
+# OU UTILISER LA COMMANDE SUIVANTE (macOS/Linux):
+# =====================================================
+
+echo "3.77.235.74 app.kubequest.local" | sudo tee -a /etc/hosts
+echo "3.77.235.74 grafana.kubequest.local" | sudo tee -a /etc/hosts
+echo "3.77.235.74 prometheus.kubequest.local" | sudo tee -a /etc/hosts
+echo "3.77.235.74 dashboard.kubequest.local" | sudo tee -a /etc/hosts

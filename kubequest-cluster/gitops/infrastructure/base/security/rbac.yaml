@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: opa
+  namespace: opa
+  labels:
+    app.kubernetes.io/name: opa
+    app.kubernetes.io/part-of: kubequest
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: opa
+  labels:
+    app.kubernetes.io/name: opa
+    app.kubernetes.io/part-of: kubequest
+rules:
+  - apiGroups: ["", "admissionregistration.k8s.io"]
+    resources: ["configmaps", "pods", "deployments", "services", "validatingwebhookconfigurations"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: opa
+  labels:
+    app.kubernetes.io/name: opa
+    app.kubernetes.io/part-of: kubequest
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: opa
+subjects:
+  - kind: ServiceAccount
+    name: opa
+    namespace: opa

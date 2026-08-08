@@ -1,0 +1,204 @@
+# =====================================================
+# POINT 4: ALERTING & NOTIFICATIONS
+# =====================================================
+
+# ConfigMap pour AlertManager (configuration de base)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+data:
+  alertmanager.yaml: |
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: 'default-receiver'
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      receiver: 'null-receiver'
+      routes:
+      - match:
+          severity: critical
+        receiver: 'critical-receiver'
+        continue: true
+      - match:
+          severity: warning
+        receiver: 'warning-receiver'
+    receivers:
+    - name: 'null-receiver'
+    - name: 'default-receiver'
+    - name: 'critical-receiver'
+      webhook_configs:
+      - url: 'http://localhost:5001/webhook'  # Placeholder
+        send_resolved: true
+    - name: 'warning-receiver'
+      webhook_configs:
+      - url: 'http://localhost:5001/webhook'  # Placeholder
+        send_resolved: true
+
+---
+# PrometheusRule pour Laravel - Alertes critiques
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: laravel-critical-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus
+    app: kube-prometheus
+spec:
+  groups:
+  - name: laravel.critical
+    interval: 30s
+    rules:
+    # Alert: Pod Laravel down
+    - alert: LaravelPodDown
+      expr: |
+        kube_pod_status_phase{namespace="laravel", phase="Running"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        app: laravel
+      annotations:
+        summary: "Pod Laravel est DOWN"
+        description: "Le pod {{ $labels.pod }} dans le namespace {{ $labels.namespace }} est DOWN depuis plus de 1 minute"
+
+    # Alert: Tous les pods Laravel down
+    - alert: LaravelAllPodsDown
+      expr: |
+        count(kube_pod_status_phase{namespace="laravel", phase="Running"}) == 0
+      for: 1m
+      labels:
+        severity: critical
+        app: laravel
+      annotations:
+        summary: "TOUS les pods Laravel sont DOWN"
+        description: "Aucun pod Laravel n'est Running dans le namespace laravel!"
+
+    # Alert: MySQL down
+    - alert: MySQLDown
+      expr: |
+        up{job="mysql", namespace="laravel"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        app: mysql
+      annotations:
+        summary: "MySQL est DOWN"
+        description: "La base de données MySQL est DOWN depuis plus de 1 minute"
+
+---
+# PrometheusRule pour Laravel - Alertes warning
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: laravel-warning-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus
+    app: kube-prometheus
+spec:
+  groups:
+  - name: laravel.warning
+    interval: 30s
+    rules:
+    # Alert: CPU élevé
+    - alert: LaravelHighCPU
+      expr: |
+        rate(container_cpu_usage_seconds_total{namespace="laravel",container="laravel"}[5m]) > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        app: laravel
+      annotations:
+        summary: "CPU élevé pour Laravel"
+        description: "L'application Laravel utilise {{ $value | humanizePercentage }} CPU (>80%)"
+
+    # Alert: Mémoire élevée
+    - alert: LaravelHighMemory
+      expr: |
+        container_memory_working_set_bytes{namespace="laravel",container="laravel"} /
+        container_spec_memory_limit_bytes{namespace="laravel",container="laravel"} > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        app: laravel
+      annotations:
+        summary: "Mémoire élevée pour Laravel"
+        description: "L'application Laravel utilise {{ $value | humanizePercentage }} de la mémoire limite (>80%)"
+
+    # Alert: Réplicas HPA au maximum
+    - alert: LaravelHPAMaxReplicas
+      expr: |
+        kube_deployment_status_replicas{namespace="laravel",deployment="laravel"} ==
+        kube_horizontalpodautoscaler_spec_max_replicas{namespace="laravel",horizontalpodautoscaler="laravel"}
+      for: 10m
+      labels:
+        severity: warning
+        app: laravel
+      annotations:
+        summary: "HPA au maximum"
+        description: "L'HPA pour Laravel a atteint son maximum de replicas"
+
+    # Alert: Redémarrages fréquents
+    - alert: LaravelFrequentRestarts
+      expr: |
+        increase(kube_pod_container_status_restarts_total{namespace="laravel"}[1h]) > 5
+      for: 5m
+      labels:
+        severity: warning
+        app: laravel
+      annotations:
+        summary: "Redémarrages fréquents"
+        description: "Le pod {{ $labels.pod }} a redémarré {{ $value }} fois dans la dernière heure"
+
+---
+# PrometheusRule pour Infrastructure
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: infrastructure-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus
+    app: kube-prometheus
+spec:
+  groups:
+  - name: infrastructure.critical
+    interval: 30s
+    rules:
+    # Alert: Node down
+    - alert: NodeDown
+      expr: |
+        kube_node_status_ready{condition="true"} == 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Node DOWN"
+        description: "Le node {{ $labels.node }} est DOWN depuis plus de 2 minutes"
+
+    # Alert: Espace disque faible
+    - alert: NodeDiskSpaceLow
+      expr: |
+        (node_filesystem_avail_bytes{mountpoint="/"} /
+        node_filesystem_size_bytes{mountpoint="/"}) < 0.1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Espace disque faible"
+        description: "Le node {{ $labels.node }} a moins de 10% d'espace disque disponible"
+
+---
+# Secret pour Slack (placeholder - à remplacer avec de vraies valeurs)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: slack-webhook
+  namespace: monitoring
+type: Opaque
+stringData:
+  url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"

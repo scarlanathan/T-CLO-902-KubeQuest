@@ -1,0 +1,35 @@
+replicaCount: 2
+
+extraArgs:
+  - --enable-skip-login
+  - --enable-insecure-login
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - kubernetes-dashboard
+          topologyKey: kubernetes.io/hostname
+
+metricsScraper:
+  enabled: true
+
+metrics:
+  enabled: true
+
+ingress:
+  enabled: false  # We'll create our own ingress with OAuth proxy

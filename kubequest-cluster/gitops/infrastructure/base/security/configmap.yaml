@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opa-policy
+  namespace: opa
+  labels:
+    app.kubernetes.io/name: opa
+    app.kubernetes.io/part-of: kubequest
+data:
+  policy.rego: |
+    package kubernetes.validations
+
+    # Validate that all pods have resource limits and requests
+    validate_resources[resource] {
+      input.request.kind.kind == "Pod"
+      container := input.request.object.spec.containers[_]
+      not container.resources
+      resource := {
+        "msg": sprintf("Container %v does not have resource limits/requests defined", [container.name]),
+        "field": "spec.containers.name"
+      }
+    }
+
+    # Validate that all pods have labels
+    validate_labels[label] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.metadata.labels["app.kubernetes.io/name"]
+      label := {
+        "msg": "Pod must have 'app.kubernetes.io/name' label",
+        "field": "metadata.labels"
+      }
+    }
+
+    # Validate that all containers run as non-root
+    validate_non_root[security] {
+      input.request.kind.kind == "Pod"
+      container := input.request.object.spec.containers[_]
+      container.securityContext.runAsUser == 0
+      security := {
+        "msg": sprintf("Container %v is running as root user", [container.name]),
+        "field": "spec.containers.securityContext.runAsUser"
+      }
+    }
+
+    # Validate that all deployments have at least 2 replicas
+    validate_replicas[replica] {
+      input.request.kind.kind == "Deployment"
+      input.request.object.spec.replicas < 2
+      replica := {
+        "msg": "Deployment must have at least 2 replicas for high availability",
+        "field": "spec.replicas"
+      }
+    }
+
+    # Validate that all services have selectors
+    validate_service_selector[selector] {
+      input.request.kind.kind == "Service"
+      not input.request.object.spec.selector
+      selector := {
+        "msg": "Service must have a selector defined",
+        "field": "spec.selector"
+      }
+    }
+
+    # Deny requests that violate policies
+    deny[msg] {
+      violation := validate_resources[_]
+      msg := violation.msg
+    }
+
+    deny[msg] {
+      violation := validate_labels[_]
+      msg := violation.msg
+    }
+
+    deny[msg] {
+      violation := validate_non_root[_]
+      msg := violation.msg
+    }
+
+    deny[msg] {
+      violation := validate_replicas[_]
+      msg := violation.msg
+    }
+
+    deny[msg] {
+      violation := validate_service_selector[_]
+      msg := violation.msg
+    }

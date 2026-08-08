@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kubernetes-dashboard
+
+# NOTE : le chart Helm officiel du dashboard n'est plus servi sur
+# https://kubernetes.github.io/dashboard/ (GitHub Pages -> 404 "Site not found").
+# Le dashboard reel du cluster est deploye via manifests bruts, pas via Helm.
+# On ne reference donc plus le helmChart (qui cassait le rendu ArgoCD) et on
+# ne conserve que les resources brutes (namespace, admin-user RBAC, ingress).
+
+resources:
+  - namespace.yaml
+  - admin-user.yaml
+  - ingress.yaml

@@ -1,0 +1,13 @@
+{{- if .Values.autoscaling.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "laravel-app.fullname" . }}
+  labels:
+    {{- include "laravel-app.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ div (sub .Values.autoscaling.minReplicas 1) .Values.autoscaling.minReplicas }}%
+  selector:
+    matchLabels:
+      {{- include "laravel-app.selectorLabels" . | nindent 6 }}
+{{- end }}

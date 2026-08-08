@@ -1,0 +1,142 @@
+# =====================================================
+# POINT 6: MONITORING D'UNE CIBLE "NODE" SUR LE PORT 1234
+# =====================================================
+#
+# Objectif :
+#   Faire scraper par Prometheus un exporter de métriques exposé sur le
+#   port TCP 1234 d'un nœud (par ex. un node_exporter ou un exporter
+#   applicatif personnalisé qui n'est PAS géré par un Service Kubernetes).
+#
+# Approche (native Prometheus Operator) :
+#   1. Un Service "headless" + un objet Endpoints renseigné manuellement
+#      qui pointe vers l'IP du nœud sur le port 1234. C'est la méthode
+#      standard pour faire découvrir une cible STATIQUE/externe par un
+#      ServiceMonitor.
+#   2. Un ServiceMonitor qui sélectionne ce Service et scrape /metrics.
+#   3. Une PrometheusRule avec une alerte "cible down".
+#
+# IMPORTANT — à adapter avant `kubectl apply` :
+#   * Remplacer l'IP `10.2.50.113` ci-dessous par l'IP RÉELLE du nœud à
+#     surveiller. D'après docs/journal-technique.md, node-4 (monitoring)
+#     = 10.2.50.113. ⚠ Les IP privées/publiques peuvent changer à chaque
+#     redémarrage des instances EC2 — vérifier dans la console AWS.
+#   * Le label `release: kube-prometheus` DOIT correspondre au
+#     `serviceMonitorSelector` de votre Prometheus (nom de release Helm
+#     du chart kube-prometheus-stack, ici `kube-prometheus`). Vérifier
+#     avec : kubectl -n monitoring get prometheus -o yaml | grep -A5 serviceMonitorSelector
+#   * Adapter `path: /metrics` si l'exporter expose un autre chemin.
+#
+# Déploiement :
+#   kubectl apply -f production-ready/06-node-1234-monitor.yaml
+#
+# Vérification :
+#   # La cible doit apparaître "UP" dans Prometheus > Status > Targets
+#   kubectl -n monitoring get servicemonitor node-1234-exporter
+#   kubectl -n monitoring get endpoints node-1234-exporter -o wide
+# =====================================================
+
+---
+# Service headless : ne crée pas de ClusterIP, sert uniquement de point
+# d'ancrage pour le ServiceMonitor (les Endpoints sont fournis à la main).
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-1234-exporter
+  namespace: monitoring
+  labels:
+    app: node-1234-exporter
+    release: kube-prometheus
+spec:
+  type: ClusterIP
+  clusterIP: None        # headless
+  ports:
+    - name: metrics      # nom de port référencé par le ServiceMonitor
+      port: 1234
+      targetPort: 1234
+      protocol: TCP
+
+---
+# Endpoints renseignés manuellement : ils relient le Service à la cible
+# statique (l'IP du nœud sur le port 1234). Le nom DOIT être identique au
+# Service ci-dessus.
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: node-1234-exporter
+  namespace: monitoring
+  labels:
+    app: node-1234-exporter
+    release: kube-prometheus
+subsets:
+  - addresses:
+      - ip: "10.2.50.113"   # ⚠ REMPLACER par l'IP réelle du nœud à surveiller
+        # nodeName: node-4   # (optionnel) facilite le filtrage par nœud
+    ports:
+      - name: metrics
+        port: 1234
+        protocol: TCP
+
+---
+# ServiceMonitor : indique à Prometheus de scraper le Service ci-dessus.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: node-1234-exporter
+  namespace: monitoring
+  labels:
+    app: node-1234-exporter
+    # Doit matcher le serviceMonitorSelector du Prometheus (release Helm).
+    release: kube-prometheus
+spec:
+  namespaceSelector:
+    matchNames:
+      - monitoring
+  selector:
+    matchLabels:
+      app: node-1234-exporter
+  endpoints:
+    - port: metrics        # référence le port nommé du Service
+      path: /metrics       # adapter si l'exporter expose un autre chemin
+      interval: 30s
+      scrapeTimeout: 10s
+      scheme: http
+      honorLabels: true
+
+---
+# Alertes Prometheus pour la cible node:1234
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-1234-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus
+    app: kube-prometheus
+spec:
+  groups:
+    - name: node-1234.rules
+      interval: 30s
+      rules:
+        # Alerte : la cible node:1234 ne répond plus au scrape
+        - alert: Node1234ExporterDown
+          expr: |
+            up{service="node-1234-exporter"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            target: node-1234
+          annotations:
+            summary: "Exporter node:1234 DOWN"
+            description: "La cible {{ $labels.instance }} (port 1234) ne répond plus au scrape Prometheus depuis plus de 2 minutes."
+
+        # Alerte : aucune métrique reçue récemment de la cible
+        - alert: Node1234NoMetrics
+          expr: |
+            absent(up{service="node-1234-exporter"})
+          for: 5m
+          labels:
+            severity: warning
+            target: node-1234
+          annotations:
+            summary: "Aucune métrique de node:1234"
+            description: "Prometheus ne découvre plus aucune cible pour le ServiceMonitor node-1234-exporter (Endpoints vides ou sélecteur incorrect) depuis 5 minutes."

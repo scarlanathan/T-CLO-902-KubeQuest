@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opa
+  namespace: opa
+  labels:
+    app.kubernetes.io/name: opa
+    app.kubernetes.io/part-of: kubequest
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: opa
+  template:
+    metadata:
+      labels:
+        app: opa
+        app.kubernetes.io/name: opa
+        app.kubernetes.io/part-of: kubequest
+    spec:
+      containers:
+        - name: opa
+          image: openpolicyagent/opa:0.62.0
+          args:
+            - "run"
+            - "--server"
+            - "--addr=0.0.0.0:8181"
+            - "--set=decision_logs.console=true"
+            - "--set=services.nginx.url=http://httpbin.org"
+            - "--set=bundles.nginx.service=nginx"
+            - "--set=bundles.nginx.resource=bundles/bundle.tar.gz"
+          ports:
+            - name: http
+              containerPort: 8181
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health?plugins=true
+              port: 8181
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: opa-policy
+              mountPath: /policy
+      volumes:
+        - name: opa-policy
+          configMap:
+            name: opa-policy
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - opa
+                topologyKey: kubernetes.io/hostname

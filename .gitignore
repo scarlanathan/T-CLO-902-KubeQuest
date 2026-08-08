@@ -1,0 +1,37 @@
+# Fichiers personnels
+PROJECT_DOC_CN.md
+
+# Outils de developpement local
+.claude/
+
+# Logs SSH et tokens sensibles
+scripts/logs/
+
+# Cles SSH et secrets
+*.pem
+*.key
+*.env
+kubeconfig-local.yaml
+kubeconfig-dashboard.yaml
+
+# Terraform (providers binaires, state, plans)
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfplan
+terraform.tfvars
+!terraform.tfvars.example
+
+# Dependances
+vendor/
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editeurs
+.vscode/
+.idea/
+*.swp

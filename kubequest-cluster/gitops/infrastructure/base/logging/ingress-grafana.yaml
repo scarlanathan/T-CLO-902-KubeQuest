@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: loki-grafana
+  namespace: logging
+  labels:
+    app.kubernetes.io/name: loki-grafana
+    app.kubernetes.io/part-of: kubequest
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - logs.kubequest.local
+      secretName: logs-grafana-tls
+  rules:
+    - host: logs.kubequest.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: loki-grafana
+                port:
+                  number: 80

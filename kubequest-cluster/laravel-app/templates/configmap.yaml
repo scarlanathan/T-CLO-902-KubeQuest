@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "laravel-app.fullname" . }}-config
+  labels:
+    {{- include "laravel-app.labels" . | nindent 4 }}
+data:
+  .env: |
+    APP_NAME={{ .Chart.Name }}
+    APP_ENV={{ .Values.config.appEnv }}
+    # APP_KEY : injecté via le Secret Kubernetes (voir deployment.yaml -> env)
+    APP_DEBUG={{ .Values.config.appDebug }}
+    APP_URL={{ .Values.config.appUrl }}
+
+    LOG_CHANNEL=stack
+    LOG_DEPRECATIONS_CHANNEL=null
+    LOG_LEVEL={{ .Values.config.logLevel }}
+
+    DB_CONNECTION=pgsql
+    DB_HOST={{ include "laravel-app.postgresql.fullname" . }}
+    DB_PORT=5432
+    DB_DATABASE={{ .Values.postgresql.auth.database }}
+    DB_USERNAME={{ .Values.postgresql.auth.username }}
+    # DB_PASSWORD : injecté via le Secret Kubernetes (voir deployment.yaml -> env)
+
+    BROADCAST_DRIVER=log
+    CACHE_DRIVER=redis
+    FILESYSTEM_DISK=local
+    QUEUE_CONNECTION=redis
+    SESSION_DRIVER=redis
+    SESSION_LIFETIME=120
+
+    REDIS_HOST=redis
+    # REDIS_PASSWORD : injecté via le Secret Kubernetes (voir deployment.yaml -> env)
+    REDIS_PORT=6379
+
+    MAIL_MAILER=smtp
+    MAIL_HOST=smtp.mailtrap.io
+    MAIL_PORT=2525
+    MAIL_USERNAME=null
+    # MAIL_PASSWORD : injecté via le Secret Kubernetes (voir deployment.yaml -> env)
+    MAIL_ENCRYPTION=null
+    MAIL_FROM_ADDRESS="hello@example.com"
+    MAIL_FROM_NAME="${APP_NAME}"

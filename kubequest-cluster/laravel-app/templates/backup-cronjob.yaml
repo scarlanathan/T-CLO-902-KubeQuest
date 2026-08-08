@@ -1,0 +1,64 @@
+{{- if .Values.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "laravel-app.fullname" . }}-backup
+  labels:
+    {{- include "laravel-app.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "laravel-app.selectorLabels" . | nindent 12 }}
+        spec:
+          containers:
+            - name: backup
+              image: postgres:15-alpine
+              command:
+                - sh
+                - -c
+                - |
+                  DATE=$(date +%Y%m%d_%H%M%S)
+                  PGPASSWORD="${DB_PASSWORD}" pg_dump -h "${DB_HOST}" -U "${DB_USER}" -d "${DB_NAME}" > /backup/backup_${DATE}.sql
+                  find /backup -name "*.sql" -mtime +{{ .Values.backup.retention | trimSuffix "d" }} -delete
+                  echo "Backup completed: backup_${DATE}.sql"
+              env:
+                - name: DB_HOST
+                  value: {{ include "laravel-app.postgresql.fullname" . }}
+                - name: DB_USER
+                  value: {{ .Values.postgresql.auth.username }}
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "laravel-app.fullname" . }}-secrets
+                      key: db-password
+                - name: DB_NAME
+                  value: {{ .Values.postgresql.auth.database }}
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backup
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: laravel-backup-pvc
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: laravel-backup-pvc
+  labels:
+    {{- include "laravel-app.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: {{ .Values.backup.storageClass | default "gp2" }}
+{{- end }}

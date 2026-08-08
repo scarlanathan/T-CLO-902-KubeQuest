@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infra-dashboard
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: kubequest
+  source:
+    repoURL: https://github.com/EpitechMscProPromo2026/T-CLO-902-PAR_5.git
+    targetRevision: main
+    path: kubequest-cluster/gitops/infrastructure/base/kubernetes-dashboard
+    # Le kustomization.yaml utilise helmCharts -> --enable-helm requis
+    kustomize: {}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kubernetes-dashboard
+  # SYNC MANUEL VOLONTAIRE : cluster bootstrappe a la main avec des versions/
+  # namespaces differents du repo. Sync a declencher manuellement.
+  # NB : le chart helm kubernetes-dashboard reference un repo GitHub Pages mort
+  # (404) -> cette app peut rester OutOfSync/Degraded tant que la source n'est
+  # pas corrigee. L'interet de la separation : isoler ce probleme des autres.
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

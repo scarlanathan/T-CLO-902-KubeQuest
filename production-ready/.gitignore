@@ -1,0 +1,21 @@
+# Fichiers à exclure du git
+*.log
+*.tmp
+*.backup
+*~
+.DS_Store
+
+# Clés privées (NE PAS COMMIT)
+*.pem
+kubequest.pem
+
+# Fichiers de configuration locale
+.env
+.env.local
+
+# Fichiers temporaires de déploiement
+*.kubeconfig
+
+# Notes personnelles (NE PAS COMMIT)
+NOTES.md
+TODO.md

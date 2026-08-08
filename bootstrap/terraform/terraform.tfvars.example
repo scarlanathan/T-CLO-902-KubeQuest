@@ -1,0 +1,8 @@
+resource_group         = "my-devtestlab-rg"
+lab_name               = "my-devtestlab"
+vm_name                = "kubequest-vm"
+vm_size                = "Standard_B2s"
+vm_username            = "kubequest"
+# vm_password à passer via TF_VAR_vm_password pour ne pas le committer
+lab_virtual_network_id = "/subscriptions/xxx/resourceGroups/my-devtestlab-rg/providers/Microsoft.DevTestLab/labs/my-devtestlab/virtualnetworks/Dtlmy-devtestlab"
+lab_subnet_name        = "Dtlmy-devtestlabSubnet"

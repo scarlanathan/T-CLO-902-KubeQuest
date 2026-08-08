@@ -1,0 +1,18 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "laravel-app.fullname" . }}
+  labels:
+    {{- include "laravel-app.labels" . | nindent 4 }}
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      {{- include "laravel-app.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.monitoring.serviceMonitor.interval | default "30s" }}
+      scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout | default "10s" }}
+{{- end }}

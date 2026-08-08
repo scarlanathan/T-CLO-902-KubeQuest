@@ -1,0 +1,74 @@
+# Kubernetes
+*.kubeconfig
+.kube/
+
+# Helm
+*.tgz
+charts/
+Chart.lock
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+*.bak
+
+# Secrets (ne JAMAIS committer de vrais secrets)
+secrets/
+*.secrets.yaml
+*.secrets.yml
+
+# Certificates
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test results
+/test-results/
+/coverage/
+*.test
+*.spec.ts
+
+# Build outputs
+/dist/
+/build/
+/bin/
+/out/
+
+# Backup files
+*.backup
+*.save
+*.orig
+
+# Lock files (sauf ceux qui doivent être versionnés)
+package-lock.json
+yarn.lock
+
+# Misc
+.cache/
+node_modules/

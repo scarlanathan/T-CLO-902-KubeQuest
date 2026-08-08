@@ -1,0 +1,24 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: opa-validating-webhook
+  labels:
+    app.kubernetes.io/name: opa
+    app.kubernetes.io/part-of: kubequest
+webhooks:
+  - name: validating-webhook.openpolicyagent.org
+    rules:
+      - apiGroups: ["", "apps", "extensions"]
+        apiVersions: ["v1", "v1beta1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods", "deployments", "services"]
+    clientConfig:
+      caBundle: ${CA_BUNDLE}
+      service:
+        namespace: opa
+        name: opa
+        path: "/v1/admit"
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    timeoutSeconds: 5
+    failurePolicy: Fail

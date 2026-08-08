@@ -1,0 +1,27 @@
+# Ne jamais embarquer ces fichiers dans l'image (.gitignore ne filtre PAS le contexte de build Docker)
+
+# Métadonnées VCS / build
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose*.yaml
+docker-compose*.yml
+
+# Secrets / configuration locale (jamais dans une couche d'image)
+.env
+.env.*
+!.env.example
+
+# Dev / tests / outillage
+tests/
+phpunit.xml
+.styleci.yml
+.editorconfig
+.idea/
+.vscode/
+node_modules/
+
+# Documentation / divers
+*.pdf
+README*

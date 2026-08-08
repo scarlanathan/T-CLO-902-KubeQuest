@@ -1,0 +1,60 @@
+controller:
+  service:
+    type: LoadBalancer
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+    externalTrafficPolicy: Local
+
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      namespace: ingress-nginx
+
+  admissionWebhooks:
+    enabled: true
+
+  config:
+    use-forwarded-headers: "true"
+    compute-full-forwarded-for: "true"
+
+  replicaCount: 2
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - ingress-nginx
+            topologyKey: kubernetes.io/hostname
+
+defaultBackend:
+  enabled: true
+  image:
+    repository: registry.k8s.io/defaultbackend-amd64
+    tag: "1.5"
+  replicaCount: 2
+
+rbac:
+  create: true

@@ -1,0 +1,119 @@
+prometheus:
+  prometheusSpec:
+    replicas: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    retention: 30d
+    retentionSize: 20GB
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp2
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+    # Le chart attend prometheusSpec.affinity (podAntiAffinity direct = string "soft"/"hard")
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values:
+                      - prometheus
+              topologyKey: kubernetes.io/hostname
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values:
+                      - alertmanager
+              topologyKey: kubernetes.io/hostname
+
+grafana:
+  enabled: true
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClassName: gp2
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - grafana
+            topologyKey: kubernetes.io/hostname
+  grafana.ini:
+    server:
+      root_url: https://grafana.kubequest.local
+    auth.anonymous:
+      enabled: false
+
+kube-state-metrics:
+  enabled: true
+
+prometheus-node-exporter:
+  enabled: true
+
+defaultRules:
+  create: true
+
+kubeApiServer:
+  enabled: true
+
+kubelet:
+  enabled: true
+
+kubeControllerManager:
+  enabled: true
+
+coreDns:
+  enabled: true
+
+kubeEtcd:
+  enabled: true
+
+kubeScheduler:
+  enabled: true
+
+kubeProxy:
+  enabled: true

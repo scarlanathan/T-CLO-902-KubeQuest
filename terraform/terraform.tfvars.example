@@ -1,0 +1,11 @@
+# Fichier d'exemple pour les variables AWS
+# Copiez ce fichier en terraform.tfvars et remplissez avec vos valeurs
+
+# IMPORTANT: Ne committez JAMAIS ce fichier avec vos vrais credentials !
+# Ajoutez terraform.tfvars à votre .gitignore
+
+aws_access_key = "VOTRE_ACCESS_KEY_ID"
+aws_secret_key = "VOTRE_SECRET_ACCESS_KEY"
+
+# Optionnel: spécifiez un autre nom de clé si nécessaire
+key_name = "SSH-Key-Group-50"

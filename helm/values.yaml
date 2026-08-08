@@ -1,0 +1,44 @@
+replicaCount: 2
+
+image:
+  repository: kubequest-app
+  tag: latest
+  # Image construite localement et chargee sur les noeuds (pas de registry) -> Never
+  pullPolicy: Never
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  # Host distinct de l'instance existante (app.kubequest.local) pour eviter tout conflit
+  host: larapp.kubequest.local
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# L'image locale kubequest-app:latest n'est presente que sur ce noeud worker.
+# On epingle donc le scheduling dessus (pullPolicy Never).
+nodeSelectorHostname: "ip-10-2-50-190.eu-central-1.compute.internal"
+
+app:
+  env: production
+  debug: "false"
+  key: "base64:DJYTvaRkEZ/YcQsX3TMpB0iCjgme2rhlIOus9A1hnj4="
+
+# Reutilise le MySQL deja deploye dans le namespace laravel (cross-namespace via FQDN)
+db:
+  connection: mysql
+  host: laravel-mysql.laravel.svc.cluster.local
+  port: "3306"
+  database: app_database
+  username: app_user
+  password: "app_password"
+  rootPassword: "app_root_password"

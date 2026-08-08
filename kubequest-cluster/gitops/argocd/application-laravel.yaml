@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: laravel-app
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: kubequest
+  source:
+    repoURL: https://github.com/EpitechMscProPromo2026/T-CLO-902-PAR_5.git
+    targetRevision: main
+    # Chart Helm reel de l'application (celui qui correspond au deploiement en place).
+    # On evite le chart kubequest-cluster/laravel-app (base PostgreSQL + PVC) qui ne
+    # correspond ni a l'app (MySQL) ni au cluster (aucune StorageClass).
+    path: helm
+    helm:
+      releaseName: laravel-app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: laravel-app-prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

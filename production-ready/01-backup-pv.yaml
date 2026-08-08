@@ -1,0 +1,119 @@
+# =====================================================
+# CONFIGURATION BACKUP MYSQL
+# Auteur: Groupe 50
+# Date: Juin 2026
+# =====================================================
+# Ce fichier configure:
+# - Un PersistentVolume (PV) pour stocker les backups sur le node
+# - Un PersistentVolumeClaim (PVC) pour lier le PV au CronJob
+# - Un CronJob qui lance un backup tous les jours à 2h du matin
+# Les backups sont conservés 7 jours automatiquement
+# =====================================================
+
+# PersistentVolume (PV) - Stockage sur le node worker
+# On utilise hostPath pour stocker les backups localement sur /mnt/data/mysql-backups
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-backup-pv
+  labels:
+    app: mysql-backups
+    project: kubequest
+spec:
+  capacity:
+    storage: 20Gi  # Espace suffisant pour 7 jours de backups
+  accessModes:
+    - ReadWriteOnce  # Un seul pod à la fois
+  persistentVolumeReclaimPolicy: Retain  # Garder les données même si le PVC est supprimé
+  hostPath:
+    path: /mnt/data/mysql-backups
+    type: DirectoryOrCreate  # Créer le dossier s'il n'existe pas
+  storageClassName: manual  # Storage class manuel pour hostPath
+
+---
+# PersistentVolumeClaim (PVC) - Réclamation du stockage
+# Le déploiement Laravel va utiliser ce PVC pour monter le volume de backup
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-backup-pvc-new
+  namespace: laravel
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: manual
+  resources:
+    requests:
+      storage: 20Gi
+  volumeName: mysql-backup-pv  # Lier au PV créé ci-dessus
+
+---
+# CronJob de backup MySQL automatique
+# S'exécute tous les jours à 2h du matin (schedule: "0 2 * * *")
+# Conserve les 3 derniers jobs réussis et 1 job échoué pour le debugging
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mysql-backup-fixed
+  namespace: laravel
+  labels:
+    app: mysql-backup
+    project: kubequest
+spec:
+  schedule: "0 2 * * *"  # Tous les jours à 2h du matin
+  successfulJobsHistoryLimit: 3  # Garder 3 backups réussis
+  failedJobsHistoryLimit: 1  # Garder 1 backup échoué pour debugging
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: mysql:8.0  # Image MySQL officielle pour mysqldump
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e  # Arrêter le script en cas d'erreur
+
+              # Créer un nom de fichier avec la date et l'heure
+              DATE=$(date +%Y%m%d-%H%M%S)
+              FILENAME="backup-${DATE}.sql"
+
+              echo "=========================================="
+              echo "Starting backup: ${FILENAME}"
+              echo "=========================================="
+
+              # Lancer le dump de toutes les bases de données
+              mysqldump -h mysql-0 -u root -p${MYSQL_ROOT_PASSWORD} \
+                --all-databases \
+                --single-transaction \
+                --quick \
+                --lock-tables=false \
+                > /backup/${FILENAME}
+
+              echo "Backup completed: ${FILENAME}"
+              echo "File size:"
+              ls -lh /backup/${FILENAME}
+
+              # Nettoyage: supprimer les backups de plus de 7 jours
+              echo "Cleaning old backups (older than 7 days)..."
+              find /backup -name "backup-*.sql" -mtime +7 -delete -print 2>/dev/null || true
+
+              echo "Current backups:"
+              ls -lh /backup/
+              echo "=========================================="
+            env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: laravel-secret
+                  key: DB_ROOT_PASSWORD
+            volumeMounts:
+            - name: backup
+              mountPath: /backup
+          volumes:
+          - name: backup
+            persistentVolumeClaim:
+              claimName: mysql-backup-pvc-new
+          restartPolicy: OnFailure  # Relancer le pod si le backup échoue

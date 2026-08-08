@@ -1,0 +1,283 @@
+# Default values for laravel-app.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global labels and annotations
+global:
+  labels:
+    app.kubernetes.io/name: laravel-app
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/part-of: kubequest
+    app.kubernetes.io/component: application
+
+# Replicas configuration - Redundancy with multiple replicas
+replicaCount: 3
+
+# Laravel application container image
+image:
+  repository: your-docker-registry/laravel-app
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+
+# This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+imagePullSecrets: []
+# This is to override the chart name.
+nameOverride: ""
+fullnameOverride: ""
+
+# Service Account configuration
+serviceAccount:
+  create: true
+  automount: false
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/IAM_ROLE_NAME"
+  name: ""
+
+# Pod annotations for monitoring and tracing
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9000"
+  prometheus.io/path: "/metrics"
+
+# Additional pod labels
+podLabels: {}
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Container security context
+# runAsUser 1000 correspond à l'utilisateur non-root de l'image (voir Dockerfile).
+securityContext:
+  allowPrivilegeEscalation: false
+  # Apache doit écrire son pid/verrous/logs (/var/run/apache2, /var/log/apache2).
+  # Passé à false pour éviter le CrashLoop ; pour repasser à true, monter des
+  # emptyDir sur ces chemins + /tmp.
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - ALL
+
+# This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
+service:
+  type: ClusterIP
+  port: 80
+  # L'image Apache écoute sur 8080 (non-root). targetPort alimente aussi le
+  # containerPort du Deployment (cf. templates/deployment.yaml).
+  targetPort: 8080
+  annotations: {}
+
+# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: app.kubequest.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: laravel-app-tls
+      hosts:
+        - app.kubequest.local
+
+# -- Expose the service via gateway-api HTTPRoute
+# Requires Gateway API resources and suitable controller installed within the cluster
+# (see: https://gateway-api.sigs.k8s.io/guides/)
+httpRoute:
+  # HTTPRoute enabled.
+  enabled: false
+  # HTTPRoute annotations.
+  annotations: {}
+  # Which Gateways this Route is attached to.
+  parentRefs:
+  - name: gateway
+    sectionName: http
+    # namespace: default
+  # Hostnames matching HTTP header.
+  hostnames:
+  - chart-example.local
+  # List of rules and filters applied.
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /headers
+  #   filters:
+  #   - type: RequestHeaderModifier
+  #     requestHeaderModifier:
+  #       set:
+  #       - name: My-Overwrite-Header
+  #         value: this-is-the-only-value
+  #       remove:
+  #       - User-Agent
+  # - matches:
+  #   - path:
+  #       type: PathPrefix
+  #       value: /echo
+  #     headers:
+  #     - name: version
+  #       value: v2
+
+# Resource limits and requests - Best practice
+resources:
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+  requests:
+    cpu: "250m"
+    memory: "256Mi"
+
+# Probes configuration
+livenessProbe:
+  httpGet:
+    # L'app n'expose pas /api/health ; on sonde la racine qui existe.
+    path: /
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    # L'app n'expose pas /api/ready ; on sonde la racine qui existe.
+    path: /
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  successThreshold: 1
+  failureThreshold: 3
+
+# Horizontal Pod Autoscaler - Auto-scaling
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Volumes configuration
+volumes:
+  - name: laravel-storage
+    persistentVolumeClaim:
+      claimName: laravel-storage-pvc
+  - name: config
+    configMap:
+      name: laravel-config
+
+# Volume mounts
+volumeMounts:
+  - name: laravel-storage
+    mountPath: /var/www/html/storage
+  - name: config
+    mountPath: /var/www/html/.env
+    subPath: .env
+
+# Node selector for pod placement
+nodeSelector:
+  kubernetes.io/arch: amd64
+
+# Tolerations
+tolerations:
+  - key: "workload-type"
+    operator: "Equal"
+    value: "application"
+    effect: "NoSchedule"
+
+# Affinity rules - Pod anti-affinity for high availability
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - laravel-app
+          topologyKey: kubernetes.io/hostname
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/worker
+              operator: In
+              values:
+                - "true"
+
+# PostgreSQL database configuration - using Bitnami PostgreSQL Helm chart
+postgresql:
+  enabled: true
+  auth:
+    enablePostgresUser: true
+    postgresPassword: "changeme"
+    username: "laravel"
+    password: "changeme"
+    database: "laravel"
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: "gp2"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    replicaCount: 1
+  readReplicas:
+    replicaCount: 0
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+# ConfigMap configuration for Laravel
+config:
+  appEnv: "production"
+  appDebug: "false"
+  appUrl: "https://app.kubequest.local"
+  logLevel: "info"
+
+# Secrets for sensitive data (these should be created externally)
+secrets:
+  appKey: "base64:your-app-key-here"
+  dbPassword: "changeme"
+  redisPassword: "changeme"
+  mailPassword: "changeme"
+
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention: "30d"
+  storageClass: "gp2"
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Logging configuration
+logging:
+  enabled: true
+  format: "json"
+  level: "info"

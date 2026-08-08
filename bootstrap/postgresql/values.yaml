@@ -1,0 +1,47 @@
+## Override du chart bitnami/postgresql
+## Doc : https://github.com/bitnami/charts/tree/main/bitnami/postgresql
+
+architecture: replication
+
+auth:
+  username: kubequest
+  password: kubequestpass
+  database: kubequestdb
+  postgresPassword: adminpass
+  replicationUsername: replicator
+  replicationPassword: replicatorpass
+
+primary:
+  persistence:
+    enabled: true
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  extendedConfiguration: |
+    max_connections = 200
+    statement_timeout = 30000
+    idle_in_transaction_session_timeout = 60000
+
+readReplicas:
+  replicaCount: 2
+  persistence:
+    enabled: true
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  extendedConfiguration: |
+    max_connections = 200
+    statement_timeout = 30000
+
+metrics:
+  enabled: false

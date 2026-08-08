@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Pas de namespace global ici : chaque composant definit deja son propre namespace.
+# Forcer un namespace commun ecrasait tous les composants et provoquait des
+# "namespace transformation produces ID conflict".
+
+resources:
+  - nginx-ingress/
+  - cert-manager/
+  - kubernetes-dashboard/
+  - monitoring/
+  - logging/
+  - security/

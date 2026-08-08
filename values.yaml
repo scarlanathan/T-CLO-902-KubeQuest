@@ -1,0 +1,5 @@
+frontend:
+  image: hashicorp/http-echo
+  port: 5678
+app:
+  key: "my-secret-key"

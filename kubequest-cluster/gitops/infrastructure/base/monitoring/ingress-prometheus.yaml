@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/part-of: kubequest
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: prometheus-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Prometheus Authentication"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - prometheus.kubequest.local
+      secretName: prometheus-tls
+  rules:
+    - host: prometheus.kubequest.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus-kube-prometheus-prometheus
+                port:
+                  number: 9090

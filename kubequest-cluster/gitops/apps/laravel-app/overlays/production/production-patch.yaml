@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: laravel-app-prod
+---
+# Increase replicas for production
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: laravel-app
+spec:
+  replicas: 5
+---
+# Enable stricter resource limits
+spec:
+  template:
+    spec:
+      containers:
+        - name: laravel-app
+          resources:
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+            requests:
+              cpu: "1000m"
+              memory: "1Gi"

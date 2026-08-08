@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infra-nginx-ingress
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: kubequest
+  source:
+    repoURL: https://github.com/EpitechMscProPromo2026/T-CLO-902-PAR_5.git
+    targetRevision: main
+    path: kubequest-cluster/gitops/infrastructure/base/nginx-ingress
+    # Le kustomization.yaml utilise helmCharts -> --enable-helm requis
+    kustomize: {}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ingress-nginx
+  # SYNC MANUEL VOLONTAIRE : cluster bootstrappe a la main avec des versions/
+  # namespaces differents du repo. Sync a declencher manuellement.
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

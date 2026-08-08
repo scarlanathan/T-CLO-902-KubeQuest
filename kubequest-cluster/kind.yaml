@@ -1,0 +1,54 @@
+# Cluster kind à 4 nœuds — miroir local de l'infra AWS 4 VM (cf. docs/schema-architecture.md).
+# Permet à chaque membre de manipuler un cluster multi-nœuds sans EC2 :
+#   node-1 control-plane · node-2 app (worker) · node-3 ingress · node-4 monitoring
+#
+# Démarrage :  kind create cluster --config kubequest-cluster/kind.yaml --name kubequest
+# Labels de rôle (node-role.kubernetes.io/*) : voir scripts/label-nodes.sh (à lancer après create).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: kubequest
+nodes:
+  # node-1 — Control Plane (le "cerveau" : apiserver, etcd, scheduler…)
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "kubequest.io/role=control-plane"
+
+  # node-2 — Worker applicatif (Pod Laravel + MySQL)
+  - role: worker
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "kubequest.io/role=app"
+
+  # node-3 — Ingress (point d'entrée unique du trafic externe).
+  # ingress-ready=true : sélectionné par le nginx-ingress controller.
+  # extraPortMappings : expose 80/443 du conteneur vers l'hôte (accès depuis le navigateur).
+  - role: worker
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "kubequest.io/role=ingress,ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+
+  # node-4 — Monitoring (Prometheus, Grafana, Alertmanager, Loki)
+  - role: worker
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "kubequest.io/role=monitoring"

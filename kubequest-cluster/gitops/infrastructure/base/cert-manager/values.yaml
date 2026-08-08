@@ -1,0 +1,29 @@
+installCRDs: true
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - cert-manager
+          topologyKey: kubernetes.io/hostname
+
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: true
